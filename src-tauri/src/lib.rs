@@ -9,10 +9,13 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
-fn hide_panel(app: AppHandle) {
-    let handle = app.app_handle().clone();
-    let panel = handle.get_webview_panel("pop_panel").unwrap();
-    panel.hide();
+fn close_panel(app: AppHandle) {
+    if let Ok(panel) = app.get_webview_panel("pop_panel") {
+        panel.set_released_when_closed(true);
+        if let Some(window) = app.get_webview_window("pop_panel") {
+            window.close().unwrap();
+        };
+    }
 }
 
 tauri_panel! {
@@ -32,13 +35,12 @@ fn transform_webview_window_to_panel(window: tauri::WebviewWindow, width: f64, h
     panel.set_style_mask(NSWindowStyleMask::NonactivatingPanel);
 
     panel.set_collection_behavior(
-        NSWindowCollectionBehavior::CanJoinAllSpaces
+        NSWindowCollectionBehavior::MoveToActiveSpace
             | NSWindowCollectionBehavior::Stationary
             | NSWindowCollectionBehavior::FullScreenAuxiliary,
     );
 
     panel.set_content_size(width, height);
-    panel.hide();
 }
 
 fn build_pop_panel(
@@ -56,7 +58,6 @@ fn build_pop_panel(
         .maximized(false)
         .closable(false)
         .resizable(false)
-        .visible(false)
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .decorations(false);
@@ -75,7 +76,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![hide_panel])
+        .invoke_handler(tauri::generate_handler![close_panel])
         .setup(|app| {
             build_pop_panel(
                 &app.handle(),
@@ -91,8 +92,25 @@ pub fn run() {
             gs.on_shortcut("CommandOrControl+Shift+X", |app, _shortcut, event| {
                 let handle = app.app_handle().clone();
                 if event.state == ShortcutState::Pressed {
-                    let panel = handle.get_webview_panel("pop_panel").unwrap();
-                    panel.show_and_make_key();
+                    let window = handle.get_webview_window("pop_panel");
+                    if window.is_some() {
+                        return;
+                    } else {
+                        let handle_clone = handle.clone();
+                        handle
+                            .run_on_main_thread(move || {
+                                build_pop_panel(
+                                    &handle_clone,
+                                    "pop_panel".to_string(),
+                                    300.0,
+                                    200.0,
+                                    800.0,
+                                    600.0,
+                                    PathBuf::from("dist/index.html"),
+                                );
+                            })
+                            .unwrap();
+                    }
                 }
             })
             .unwrap();

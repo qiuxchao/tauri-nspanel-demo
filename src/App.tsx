@@ -8,9 +8,9 @@ function App() {
 			<button
 				className='btn'
 				onClick={() => {
-					invoke('hide_panel');
+					invoke('close_panel');
 				}}>
-				Hide Panel
+				Close Panel
 			</button>
 		</main>
 	);
