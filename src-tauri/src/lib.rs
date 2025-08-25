@@ -12,9 +12,9 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 fn close_panel(app: AppHandle) {
     if let Ok(panel) = app.get_webview_panel("pop_panel") {
         panel.set_released_when_closed(true);
-        if let Some(window) = app.get_webview_window("pop_panel") {
-            window.close().unwrap();
-        };
+        // release the event handler if any
+        panel.set_event_handler(None);
+        panel.close(&app);
     }
 }
 
@@ -92,8 +92,10 @@ pub fn run() {
             gs.on_shortcut("CommandOrControl+Shift+X", |app, _shortcut, event| {
                 let handle = app.app_handle().clone();
                 if event.state == ShortcutState::Pressed {
+                    println!("CommandOrControl+Shift+X pressed");
                     let window = handle.get_webview_window("pop_panel");
                     if window.is_some() {
+                        println!("panel already exists!");
                         return;
                     } else {
                         let handle_clone = handle.clone();
